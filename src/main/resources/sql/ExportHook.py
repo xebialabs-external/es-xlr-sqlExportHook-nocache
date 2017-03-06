@@ -8,9 +8,14 @@ import re
 import sys
 from java.lang import Class
 from java.sql  import DriverManager, SQLException
+import time
 
 def stripApplication(releaseId):
     return releaseId.replace('Applications/', '')
+# End def
+
+def escape(value):
+    return value.replace("'","''") if value is not None else None
 # End def
 
 def getPhase( releaseId ):
@@ -71,6 +76,17 @@ def expandGroup(taskOrGroup):
             tasks.extend(expandGroup(task))
         return tasks
 # End def
+
+def formatDateTime(datetimevalue):
+    return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(datetimevalue))
+
+def getVariableByName(variables, variableName):
+    for variable in variables:
+        if variable.key == variableName  :
+            return variable.value
+    return None
+# End def
+
           
 logger.info("Starting SQL export of the release %s" % release.id)
 sqlScratchFile="/tmp/releaseDetails.sql"
@@ -103,18 +119,16 @@ try:
                 if task.failuresCount:
                     numRetriedTasks += 1
     
-    sqlCmd = 'INSERT INTO %s VALUES ("%s","%s","%s","%s",FROM_UNIXTIME(%d),FROM_UNIXTIME(%d),%d,%s,%d,"%s","%s","%s",%d,%s,%s,%s,%s);\n' % \
-              (exportHook.releaseDetailsTable, stripApplication(release.id), \
-               stripApplication(noneToEmpty(release.originTemplateId)), \
-               release.title, release.owner, \
-               startReleaseMillis/1000, endReleaseMillis/1000, \
-               noneToZero(releaseDuration), noneToZero(release.plannedDuration), \
-               oneIfOverrun(release.plannedDuration, releaseDuration), \
-               release.status, release.flagStatus, \
-               noneToEmpty(' '.join(release.tags)), numTasks, \
-               numRetriedTasks, numCompletedTasks, \
-               numSkippedTasks, divOrEmpty(numAutomatedTasks, numTasks))
-    logger.error( sqlCmd )
+    sqlCmd = "INSERT INTO %s (Release_ID, Template_ID, Release_Title, Release_Owner, Application_Name, Application_Version, Release_Start_Time, Release_End_Time, Release_Duration, Planned_Release_Duration \
+                , Is_Release_Delayed , Release_Status, Release_Flag_Status, Release_Tags, No_Tasks, No_Retried_Tasks, No_Completed_Tasks, No_Skipped_Tasks , Automation ) \
+              VALUES ('%s','%s','%s','%s','%s','%s','%s','%s',%d,%s,%d,'%s','%s','%s',%d,%s,%s,%s,%s);" % \
+              (exportHook.releaseDetailsTable, stripApplication(release.id), stripApplication(noneToEmpty(release.originTemplateId)), escape(release.title), escape(release.owner) \
+                 , getVariableByName(release.variables,exportHook.jiraProjectVariableName), getVariableByName(release.variables,exportHook.jiraProjectReleaseVersion)
+                 , formatDateTime(startReleaseMillis/1000), formatDateTime(endReleaseMillis/1000), noneToZero(releaseDuration), noneToZero(release.plannedDuration) \
+                 , oneIfOverrun(release.plannedDuration, releaseDuration), release.status \
+                 , release.flagStatus, noneToEmpty(' '.join(release.tags)), numTasks, numRetriedTasks, numCompletedTasks, numSkippedTasks \
+                 , divOrEmpty(numAutomatedTasks, numTasks) )
+    logger.debug( sqlCmd )
     sql_command_file.write( sqlCmd )
     rs = stmt.execute( sqlCmd )
 finally:
@@ -132,14 +146,32 @@ try:
             for task in expandGroup(taskOrGroup):
                 startTaskMillis = task.startDate.getTime()
                 endTaskMillis = task.endDate.getTime()
-                sqlCmd='INSERT INTO %s VALUES ("%s","%s","%s","%s","%s",%d,"%s","%s","%s",FROM_UNIXTIME(%d),FROM_UNIXTIME(%d),%d,"%s",%d,"%s");\n' % \
-                (exportHook.taskDetailsTable, stripApplication(release.id), getPhase(task.id), getTask(task.id), \
-                 phase.title, task.type, oneIfAutomated(task.type), task.title, noneToEmpty(task.owner), noneToEmpty(task.team), \
-                 startTaskMillis/1000, endTaskMillis/1000, (endTaskMillis - startTaskMillis) / 1000, task.status, \
+                sqlCmd="INSERT INTO %s VALUES ('%s','%s','%s','%s','%s',%d,'%s','%s','%s','%s','%s',%d,'%s',%d,'%s');\n" % \
+                (exportHook.taskDetailsTable, stripApplication(release.id), stripApplication(phase.id), stripApplication(task.id), \
+                 escape(phase.title), task.type, oneIfAutomated(task.type), escape(task.title), noneToEmpty(task.owner), noneToEmpty(task.team), \
+                 formatDateTime(startTaskMillis/1000), formatDateTime(endTaskMillis/1000), (endTaskMillis - startTaskMillis) / 1000, task.status, \
                  task.failuresCount, task.flagStatus)
-                logger.error( sqlCmd )
+                logger.debug( sqlCmd )
                 sql_command_file.write( sqlCmd )
                 rs = stmt.execute( sqlCmd )
+finally:
+    sql_command_file.close()
+    con.close()
+
+logger.debug("Writing User Stories detail for %s" % release.id )
+
+sql_command_file = open(sqlScratchFile, 'a')
+con = DriverManager.getConnection( exportHook.JDBCUrl, exportHook.username, exportHook.password )
+try:
+    stmt = con.createStatement()
+    userStories = getVariableByName(release.variables,exportHook.userStoriesVariableName)
+    if userStories is not None:
+        for userStoryId, userStoryDescr in  userStories.items():
+            sqlCmd="INSERT INTO %s VALUES ('%s','%s','%s');\n" % \
+            (exportHook.userStoriesTable, stripApplication(release.id) , userStoryId, escape(userStoryDescr))
+            logger.debug( sqlCmd )
+            sql_command_file.write( sqlCmd )
+            rs = stmt.execute( sqlCmd )
 finally:
     sql_command_file.close()
     con.close()

@@ -5,8 +5,13 @@
      <property name="JDBCUrl" />
      <property name="username" />
      <property name="password" password="true" />
-     <property name="releaseDetailsTable" />
-     <property name="taskDetailsTable" />
+     <property name="releaseDetailsTable" default="release_details"/>
+     <property name="taskDetailsTable" default="task_stories" />
+     <property name="userStoriesTable" default="user_stories" />
+
+     <property name="jiraProjectVariableName" default="JiraProject" />
+     <property name="jiraProjectReleaseVersion" default="ApplicationVersion" />
+     <property name="userStoriesVariableName" default="JiraUserStories" />
    </type>
 
 </synthetic>
