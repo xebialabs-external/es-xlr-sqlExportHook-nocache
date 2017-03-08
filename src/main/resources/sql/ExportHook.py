@@ -28,7 +28,7 @@ try:
     for sqlCmd in exportSQLs:
         rs = stmt.execute( sqlCmd )
 finally:
-    if con not None:
+    if con is not None:
        con.close()
 
 logger.info("Completed SQL export of the release %s" % release.id)
