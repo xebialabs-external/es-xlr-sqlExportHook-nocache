@@ -4,6 +4,7 @@
    <type type="sql.ExportHook" extends="xlrelease.ExportHook">
      <property name="JDBCUrl" />
      <property name="username" />
+     <property name="dbDriver" default="net.sourceforge.jtds.jdbc.Driver" />
      <property name="password" password="true" />
      <property name="releaseDetailsTable" default="release_details"/>
      <property name="taskDetailsTable" default="task_stories" />
