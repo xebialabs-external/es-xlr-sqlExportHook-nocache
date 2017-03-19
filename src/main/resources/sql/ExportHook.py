@@ -23,6 +23,7 @@ exportSQLs.extend(exportClient.get_user_stories_sql(release, exportHook.userStor
 # Inserting records into databse -----------------------------------------------------
 con = None
 try:
+    Class.forName(exportHook.dbDriver);
     con = DriverManager.getConnection( exportHook.JDBCUrl, exportHook.username, exportHook.password )
     stmt = con.createStatement() 
     for sqlCmd in exportSQLs:
