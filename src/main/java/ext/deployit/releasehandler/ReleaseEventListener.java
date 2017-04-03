@@ -287,6 +287,7 @@ public class ReleaseEventListener {
       dbConnection.commit();
       logger.info("Done exporting release {} - {}", release.getId(), release.getTitle());
     } catch (SQLException exception) {
+      dbConnection.rollback();
       throw exception;
     } finally {
       dbConnection.close();
