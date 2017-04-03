@@ -1,5 +1,6 @@
 from sql.ExportClient import ExportClient
 
+print exportHook
 
 releaseDetailsTable =  request.query['r'] if 'r' in request.query else 'release_details'
 taskDetailsTable    =  request.query['t'] if 't' in request.query else 'task_details'
