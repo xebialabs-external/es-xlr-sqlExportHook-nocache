@@ -16,3 +16,7 @@ The plugin uses EventHandler mechanism in XLRelease to push the Release and asso
 Events subscribed are
 1. CisCreated - Whenever a release is created, it is pushed to external reporting database
 2. CisUpdated - Whenever a running  release is modified the release and associated data is pushed to external reporting database (including when release is marked COMPLETED or ABORTED)
+
+
+Note: Create only one Reporting Database Config 
+![ReportingDatabaseConfigurtion](images/ReportingDBConfig.png)
