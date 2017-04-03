@@ -18,5 +18,9 @@ Events subscribed are
 2. CisUpdated - Whenever a running  release is modified the release and associated data is pushed to external reporting database (including when release is marked COMPLETED or ABORTED)
 
 
-Note: Create only one Reporting Database Config 
+Note: 
+1. Create only one Reporting Database Config 
+2. jtds driver is used to support Windows Based authentication.
+3. The plugin uses c3p0 database pooling.
+
 ![ReportingDatabaseConfigurtion](images/ReportingDBConfig.png)
