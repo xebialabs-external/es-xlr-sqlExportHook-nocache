@@ -7,7 +7,10 @@ Plugin to export release to MSSQL database
 
 ## Installation ##
 
-Place the latest released version under the `plugins` dir.
+1. Place the latest released version under the `plugins` dir.
+2. Place the dependency jars (from ./pluginlibs) to XL_RELEASE_INSTALL_DIR/lib dir.
+3. For XLR v7 and above ensure below setting in file XL_RELEASE_INSTALL_DIR/conf/xl-release.conf (create file if not already present)
+       xl.repository.decryptPasswords = true
 
 ## Description ##
 
