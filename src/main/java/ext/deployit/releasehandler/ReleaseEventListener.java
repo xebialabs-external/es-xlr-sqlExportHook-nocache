@@ -35,7 +35,13 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.xebialabs.deployit.engine.spi.event.CisCreatedEvent;
 import com.xebialabs.deployit.engine.spi.event.CisUpdatedEvent;
-import com.xebialabs.deployit.engine.spi.event.DeployitEventListener;
+
+// import com.xebialabs.deployit.engine.spi.event.DeployitEventListener;
+// Change to use XLReleaseEventListener
+import com.xebialabs.xlrelease.domain.events.ActivityLogEvent;
+import com.xebialabs.xlrelease.events.AsyncSubscribe;
+import com.xebialabs.xlrelease.events.XLReleaseEventListener;
+//
 import com.xebialabs.deployit.plugin.api.reflect.Type;
 import com.xebialabs.deployit.plugin.api.udm.ConfigurationItem;
 import com.xebialabs.deployit.repository.RepositoryService;
@@ -51,8 +57,8 @@ import com.xebialabs.xlrelease.domain.variables.Variable;
 
 import nl.javadude.t2bus.Subscribe;
 
-@DeployitEventListener
-public class ReleaseEventListener {
+// Previously a @DeployitEventListener
+public class ReleaseEventListener implements XLReleaseEventListener {
   private static final Logger logger = LoggerFactory.getLogger(ReleaseEventListener.class);
 
   private static final Type RELEASE_TYPE = Type.valueOf("xlrelease.Release");
@@ -81,6 +87,58 @@ public class ReleaseEventListener {
     return dbConnectionConfig;
   }
 
+// case class ActivityLogEvent(releaseId: String, id: String, activityType: String, message: String) extends XLReleaseEvent
+
+  @AsyncSubscribe
+  public void receiveActivityLogEvent(ActivityLogEvent event) {
+    
+    switch (event.activityType)
+    {
+      
+      case "RELEASE_CREATED": 
+        release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId);
+        // There is no longer any need to check if it's a template, as 
+        // templates have their own event types (TEMPLATE_CREATED, etc)
+        if (release.getStatus() == ReleaseStatus.PLANNED) {
+          if (RELEASES_SEEN.getIfPresent(release.getId()) != null) {
+            logger.debug("Release '{}' already seen. Doing nothing", release.getId());
+          } else {
+            RELEASES_SEEN.put(release.getId(), true);
+            exportRelease(release);
+          }
+        }
+        break;
+        
+      case "RELEASE_TITLE_UPDATED": 
+      case "RELEASE_DESCRIPTION_UPDATED": 
+      case "RELEASE_DUE_DATE_UPDATED": 
+      case "RELEASE_SCHEDULED_START_DATE_UPDATED": 
+      case "RELEASE_OWNER_UPDATED": 
+      case "RELEASE_TAGS_UPDATED": 
+      case "RELEASE_FLAG_STATUS_UPDATED": 
+      case "RELEASE_FLAG_COMMENT_UPDATED": 
+      case "RELEASE_ABORT_RELEASE_ON_FAILURE_UPDATED": 
+        // Also run this code for any kind of update
+        release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId);
+        // There is no longer any need to check if it's a template, as 
+        // templates have their own event types (TEMPLATE_CREATED, etc)
+        if (release.getStatus() == ReleaseStatus.PLANNED) {
+          if (RELEASES_SEEN.getIfPresent(release.getId()) != null) {
+            logger.debug("Release '{}' already seen. Doing nothing", release.getId());
+          } else {
+            RELEASES_SEEN.put(release.getId(), true);
+            exportRelease(release);
+          }
+        }
+        break;
+        
+    }
+    
+  }
+
+// Previous DeployitEvent handlers - can remove once testing passes
+
+/*
   @Subscribe
   public void receiveCisCreated(CisCreatedEvent event) {
     for (ConfigurationItem ci : event.getCis()) {
@@ -117,6 +175,7 @@ public class ReleaseEventListener {
       }
     }
   }
+  */
 
   private void exportRelease(final Release release) {
     logger.debug("Submitting runnable to invoke release exporter for release '{}'", release.getId());
