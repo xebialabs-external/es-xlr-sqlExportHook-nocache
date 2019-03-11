@@ -101,7 +101,7 @@ public class ReleaseEventListener implements XLReleaseEventListener {
     
     String str_id = event.id();
     String str_message = event.message();
-    String str_releaseId = (String) event.release();
+    // String str_releaseId = (String) event.release();
     // String str_releaseId = "ReleaseFakeId1a6cf093";
     
     switch (event.activityType())
@@ -109,7 +109,7 @@ public class ReleaseEventListener implements XLReleaseEventListener {
       
       case "RELEASE_CREATED": 
         // Release evtCreated_release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId());
-        Release evtCreated_release = XLReleaseServiceHolder.getReleaseApi().getRelease("DEBUG_FakeReleaseID");
+        Release evtCreated_release = XLReleaseServiceHolder.getReleaseApi().getRelease(str_id);
         // There is no longer any need to check if it's a template, as 
         // templates have their own event types (TEMPLATE_CREATED, etc)
         if (evtCreated_release.getStatus() == ReleaseStatus.PLANNED) {
@@ -133,7 +133,7 @@ public class ReleaseEventListener implements XLReleaseEventListener {
       case "RELEASE_ABORT_RELEASE_ON_FAILURE_UPDATED": 
         // Also run this code for any kind of update
         // Release evtUpd_release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId());
-        Release evtUpd_release = XLReleaseServiceHolder.getReleaseApi().getRelease("DEBUG_FakeReleaseID");
+        Release evtUpd_release = XLReleaseServiceHolder.getReleaseApi().getRelease(str_id);
         // There is no longer any need to check if it's a template, as 
         // templates have their own event types (TEMPLATE_CREATED, etc)
         if (evtUpd_release.getStatus() == ReleaseStatus.PLANNED) {
