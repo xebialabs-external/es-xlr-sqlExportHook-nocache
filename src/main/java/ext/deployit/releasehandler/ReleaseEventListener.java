@@ -39,8 +39,15 @@ import com.xebialabs.deployit.engine.spi.event.CisUpdatedEvent;
 // import com.xebialabs.deployit.engine.spi.event.DeployitEventListener;
 // Change to use XLReleaseEventListener
 import com.xebialabs.xlrelease.domain.events.ActivityLogEvent;
+import com.xebialabs.xlrelease.domain.events.PhaseExecutionEvent;
+import com.xebialabs.xlrelease.domain.events.ReleaseExecutionEvent;
+import com.xebialabs.xlrelease.domain.events.TaskExecutionEvent;
 import com.xebialabs.xlrelease.events.AsyncSubscribe;
 import com.xebialabs.xlrelease.events.XLReleaseEventListener;
+import com.xebialabs.xlrelease.domain.status.PhaseStatus;
+import com.xebialabs.xlrelease.domain.status.ReleaseStatus;
+import com.xebialabs.xlrelease.domain.status.TaskStatus;
+
 //
 import com.xebialabs.deployit.plugin.api.reflect.Type;
 import com.xebialabs.deployit.plugin.api.udm.ConfigurationItem;
@@ -92,19 +99,25 @@ public class ReleaseEventListener implements XLReleaseEventListener {
   @AsyncSubscribe
   public void receiveActivityLogEvent(ActivityLogEvent event) {
     
-    switch (event.activityType)
+    String str_id = event.id();
+    String str_message = event.message();
+    String str_releaseId = (String) event.release();
+    // String str_releaseId = "ReleaseFakeId1a6cf093";
+    
+    switch (event.activityType())
     {
       
       case "RELEASE_CREATED": 
-        release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId);
+        // Release evtCreated_release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId());
+        Release evtCreated_release = XLReleaseServiceHolder.getReleaseApi().getRelease("DEBUG_FakeReleaseID");
         // There is no longer any need to check if it's a template, as 
         // templates have their own event types (TEMPLATE_CREATED, etc)
-        if (release.getStatus() == ReleaseStatus.PLANNED) {
-          if (RELEASES_SEEN.getIfPresent(release.getId()) != null) {
-            logger.debug("Release '{}' already seen. Doing nothing", release.getId());
+        if (evtCreated_release.getStatus() == ReleaseStatus.PLANNED) {
+          if (RELEASES_SEEN.getIfPresent(evtCreated_release.getId()) != null) {
+            logger.debug("Release '{}' already seen. Doing nothing", evtCreated_release.getId());
           } else {
-            RELEASES_SEEN.put(release.getId(), true);
-            exportRelease(release);
+            RELEASES_SEEN.put(evtCreated_release.getId(), true);
+            exportRelease(evtCreated_release);
           }
         }
         break;
@@ -119,15 +132,16 @@ public class ReleaseEventListener implements XLReleaseEventListener {
       case "RELEASE_FLAG_COMMENT_UPDATED": 
       case "RELEASE_ABORT_RELEASE_ON_FAILURE_UPDATED": 
         // Also run this code for any kind of update
-        release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId);
+        // Release evtUpd_release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId());
+        Release evtUpd_release = XLReleaseServiceHolder.getReleaseApi().getRelease("DEBUG_FakeReleaseID");
         // There is no longer any need to check if it's a template, as 
         // templates have their own event types (TEMPLATE_CREATED, etc)
-        if (release.getStatus() == ReleaseStatus.PLANNED) {
-          if (RELEASES_SEEN.getIfPresent(release.getId()) != null) {
-            logger.debug("Release '{}' already seen. Doing nothing", release.getId());
+        if (evtUpd_release.getStatus() == ReleaseStatus.PLANNED) {
+          if (RELEASES_SEEN.getIfPresent(evtUpd_release.getId()) != null) {
+            logger.debug("Release '{}' already seen. Doing nothing", evtUpd_release.getId());
           } else {
-            RELEASES_SEEN.put(release.getId(), true);
-            exportRelease(release);
+            RELEASES_SEEN.put(evtUpd_release.getId(), true);
+            exportRelease(evtUpd_release);
           }
         }
         break;
