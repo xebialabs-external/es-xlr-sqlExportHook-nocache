@@ -84,21 +84,6 @@ public class ReleaseEventListener implements XLReleaseEventListener {
       .expireAfterWrite(10, SECONDS).<String, Boolean>build();
 
   private ConfigurationItem getDBConnectionConfig() {
-    // final RepositoryService repositoryService = XLReleaseServiceHolder.getRepositoryService();
-    //    RepositoryService deprecated, must replace with XLReleaseServiceHolder.getConfigurationApi()
-    
-    /*
-    List<ConfigurationItem> configs = repositoryService
-        .listEntities(new SearchParameters().setType(Type.valueOf(Configuration.class)));
-    ConfigurationItem dbConnectionConfig = null;
-    for (ConfigurationItem config : configs) {
-      if (config.getType().getName().equals(DB_CONN_NAME)
-          && config.getType().getPrefix().equals(DB_CONN_PREFIX)) {
-        dbConnectionConfig = config;
-        break;
-      }
-    }
-    */ 
     
     List<? extends ConfigurationItem> configs = XLReleaseServiceHolder.getConfigurationApi().searchByTypeAndTitle(DB_CONN_NAME,DB_CONN_PREFIX);
     ConfigurationItem dbConnectionConfig = configs.get(0); // Assume it's the first and it exists
@@ -106,10 +91,7 @@ public class ReleaseEventListener implements XLReleaseEventListener {
     
   }
 
-// case class ActivityLogEvent(releaseId: String, id: String, activityType: String, message: String) extends XLReleaseEvent
-
   @AsyncSubscribe
-  // public synchronized void receiveActivityLogEvent(ActivityLogEvent event) {
   public synchronized void receiveReleaseEvent(ReleaseEvent event) {
     
     logger.debug("Executing receiveReleaseEvent()");
@@ -122,94 +104,28 @@ public class ReleaseEventListener implements XLReleaseEventListener {
       release = ((ReleaseStartedEvent) event).release(); 
       authenticationService.loginScriptUser(release);
       logger.debug(release.getTitle());
+      if (release.getStatus() == ReleaseStatus.PLANNED) { 
+        if (RELEASES_SEEN.getIfPresent(release.getId()) != null) {
+          logger.debug("Release '{}' already seen. Doing nothing", release.getId());
+        } else {
+          RELEASES_SEEN.put(release.getId(), true);
+          exportRelease(release);
+        }
+      }
       authenticationService.logoutScriptUser();
     }
     
-    /*
-    switch (event.activityType())
+    // We can use this style if we need to handle many, many event types
+    /* 
+    switch (event.getClass().getName())
     {
-      
-      case "RELEASE_CREATED": 
-        Release evtCreated_release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId());
-        // There is no longer any need to check if it's a template, as 
-        // templates have their own event types (TEMPLATE_CREATED, etc)
-        if (evtCreated_release.getStatus() == ReleaseStatus.PLANNED) {
-          if (RELEASES_SEEN.getIfPresent(evtCreated_release.getId()) != null) {
-            logger.debug("Release '{}' already seen. Doing nothing", evtCreated_release.getId());
-          } else {
-            RELEASES_SEEN.put(evtCreated_release.getId(), true);
-            exportRelease(evtCreated_release);
-          }
-        }
+      case "com.xebialabs.xlrelease.domain.events.ReleaseStartedEvent":
         break;
-        
-      case "RELEASE_TITLE_UPDATED": 
-      case "RELEASE_DESCRIPTION_UPDATED": 
-      case "RELEASE_DUE_DATE_UPDATED": 
-      case "RELEASE_SCHEDULED_START_DATE_UPDATED": 
-      case "RELEASE_OWNER_UPDATED": 
-      case "RELEASE_TAGS_UPDATED": 
-      case "RELEASE_FLAG_STATUS_UPDATED": 
-      case "RELEASE_FLAG_COMMENT_UPDATED": 
-      case "RELEASE_ABORT_RELEASE_ON_FAILURE_UPDATED": 
-        // Also run this code for any kind of update
-        Release evtUpd_release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId());
-        // There is no longer any need to check if it's a template, as 
-        // templates have their own event types (TEMPLATE_CREATED, etc)
-        if (evtUpd_release.getStatus() == ReleaseStatus.PLANNED) {
-          if (RELEASES_SEEN.getIfPresent(evtUpd_release.getId()) != null) {
-            logger.debug("Release '{}' already seen. Doing nothing", evtUpd_release.getId());
-          } else {
-            RELEASES_SEEN.put(evtUpd_release.getId(), true);
-            exportRelease(evtUpd_release);
-          }
-        }
-        break;
-        
-        
-    }    */
+    } */
+
     
   }
 
-// Previous DeployitEvent handlers - can remove once testing passes
-/*
-  @Subscribe
-  public void receiveCisCreated(CisCreatedEvent event) {
-    for (ConfigurationItem ci : event.getCis()) {
-      if (ci.getType().instanceOf(RELEASE_TYPE)) {
-        final Release release = (Release) ci;
-        if (release.getStatus() == ReleaseStatus.PLANNED && release.getStatus() != ReleaseStatus.TEMPLATE) {
-          if (RELEASES_SEEN.getIfPresent(release.getId()) != null) {
-            logger.debug("Release '{}' already seen. Doing nothing", release.getId());
-          } else {
-            RELEASES_SEEN.put(release.getId(), true);
-            exportRelease(release);
-          }
-        }
-      }
-    }
-  }
-
-  @Subscribe
-  public void receiveCisUpdated(CisUpdatedEvent event) {
-    for (ConfigurationItem ci : event.getCis()) {
-      if (ci.getType().instanceOf(RELEASE_TYPE)) {
-        final Release release = (Release) ci;
-        if (release.getStatus() != ReleaseStatus.PLANNED && release.getStatus() != ReleaseStatus.TEMPLATE) {
-          logger.info("Release status seen : {}", release.getStatus().toString());
-          // if (RELEASES_SEEN.getIfPresent(release.getId()) != null)
-          // {
-          // logger.debug("Release '{}' already seen. Doing nothing",
-          // release.getId());
-          // } else {
-          RELEASES_SEEN.put(release.getId(), true);
-          exportRelease(release);
-          // }
-        }
-      }
-    }
-  }
-  */
 
   private void exportRelease(final Release release) {
     logger.debug("Submitting runnable to invoke release exporter for release '{}'", release.getId());
