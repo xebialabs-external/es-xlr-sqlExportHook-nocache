@@ -39,9 +39,12 @@ import com.xebialabs.deployit.engine.spi.event.CisUpdatedEvent;
 // import com.xebialabs.deployit.engine.spi.event.DeployitEventListener;
 // Change to use XLReleaseEventListener
 import com.xebialabs.xlrelease.domain.events.ActivityLogEvent;
-import com.xebialabs.xlrelease.domain.events.PhaseExecutionEvent;
-import com.xebialabs.xlrelease.domain.events.ReleaseExecutionEvent;
-import com.xebialabs.xlrelease.domain.events.TaskExecutionEvent;
+import com.xebialabs.xlrelease.domain.events.ReleaseEvent;
+import com.xebialabs.xlrelease.domain.events.ReleaseStartedEvent;
+import com.xebialabs.xlrelease.security.authentication.AuthenticationService;
+// import com.xebialabs.xlrelease.domain.events.PhaseExecutionEvent;
+// import com.xebialabs.xlrelease.domain.events.ReleaseExecutionEvent;
+// import com.xebialabs.xlrelease.domain.events.TaskExecutionEvent;
 import com.xebialabs.xlrelease.events.AsyncSubscribe;
 import com.xebialabs.xlrelease.events.XLReleaseEventListener;
 import com.xebialabs.xlrelease.domain.status.PhaseStatus;
@@ -74,13 +77,17 @@ public class ReleaseEventListener implements XLReleaseEventListener {
   private static final String DB_CONN_NAME = "ReportingDatabase";
   private static final String DB_CONN_PREFIX = "expressScripts";
   private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
+  
+  private AuthenticationService authenticationService;
 
   private static final Cache<String, Boolean> RELEASES_SEEN = CacheBuilder.newBuilder().maximumSize(1000)
       .expireAfterWrite(10, SECONDS).<String, Boolean>build();
 
   private ConfigurationItem getDBConnectionConfig() {
-    final RepositoryService repositoryService = XLReleaseServiceHolder.getRepositoryService();
-
+    // final RepositoryService repositoryService = XLReleaseServiceHolder.getRepositoryService();
+    //    RepositoryService deprecated, must replace with XLReleaseServiceHolder.getConfigurationApi()
+    
+    /*
     List<ConfigurationItem> configs = repositoryService
         .listEntities(new SearchParameters().setType(Type.valueOf(Configuration.class)));
     ConfigurationItem dbConnectionConfig = null;
@@ -91,25 +98,39 @@ public class ReleaseEventListener implements XLReleaseEventListener {
         break;
       }
     }
-    return dbConnectionConfig;
+    */ 
+    
+    List<? extends ConfigurationItem> configs = XLReleaseServiceHolder.getConfigurationApi().searchByTypeAndTitle(DB_CONN_NAME,DB_CONN_PREFIX);
+    ConfigurationItem dbConnectionConfig = configs.get(0); // Assume it's the first and it exists
+    return dbConnectionConfig; 
+    
   }
 
 // case class ActivityLogEvent(releaseId: String, id: String, activityType: String, message: String) extends XLReleaseEvent
 
   @AsyncSubscribe
-  public void receiveActivityLogEvent(ActivityLogEvent event) {
+  // public synchronized void receiveActivityLogEvent(ActivityLogEvent event) {
+  public synchronized void receiveReleaseEvent(ReleaseEvent event) {
     
-    String str_id = event.id();
-    String str_message = event.message();
-    // String str_releaseId = (String) event.release();
-    // String str_releaseId = "ReleaseFakeId1a6cf093";
+    logger.debug("Executing receiveReleaseEvent()");
+    logger.debug("event class is " + event.getClass().getName());
+    // logger.debug("event.releaseId=” + event.releaseId()");
+    // logger.debug("activityType: " + event.activityType());
     
+    Release release = null;
+    if (event.getClass().getName() == "com.xebialabs.xlrelease.domain.events.ReleaseStartedEvent") {
+      release = ((ReleaseStartedEvent) event).release(); 
+      authenticationService.loginScriptUser(release);
+      logger.debug(release.getTitle());
+      authenticationService.logoutScriptUser();
+    }
+    
+    /*
     switch (event.activityType())
     {
       
       case "RELEASE_CREATED": 
-        // Release evtCreated_release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId());
-        Release evtCreated_release = XLReleaseServiceHolder.getReleaseApi().getRelease(str_id);
+        Release evtCreated_release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId());
         // There is no longer any need to check if it's a template, as 
         // templates have their own event types (TEMPLATE_CREATED, etc)
         if (evtCreated_release.getStatus() == ReleaseStatus.PLANNED) {
@@ -132,8 +153,7 @@ public class ReleaseEventListener implements XLReleaseEventListener {
       case "RELEASE_FLAG_COMMENT_UPDATED": 
       case "RELEASE_ABORT_RELEASE_ON_FAILURE_UPDATED": 
         // Also run this code for any kind of update
-        // Release evtUpd_release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId());
-        Release evtUpd_release = XLReleaseServiceHolder.getReleaseApi().getRelease(str_id);
+        Release evtUpd_release = XLReleaseServiceHolder.getReleaseApi().getRelease(event.releaseId());
         // There is no longer any need to check if it's a template, as 
         // templates have their own event types (TEMPLATE_CREATED, etc)
         if (evtUpd_release.getStatus() == ReleaseStatus.PLANNED) {
@@ -146,12 +166,12 @@ public class ReleaseEventListener implements XLReleaseEventListener {
         }
         break;
         
-    }
+        
+    }    */
     
   }
 
 // Previous DeployitEvent handlers - can remove once testing passes
-
 /*
   @Subscribe
   public void receiveCisCreated(CisCreatedEvent event) {
