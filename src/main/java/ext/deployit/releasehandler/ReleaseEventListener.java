@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javax.annotation.Resource;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,8 +61,7 @@ import com.xebialabs.xlrelease.domain.status.ReleaseStatus;
 import com.xebialabs.xlrelease.domain.status.TaskStatus;
 import com.xebialabs.xlrelease.domain.variables.Variable;
 
-import nl.javadude.t2bus.Subscribe;
-import javax.annotation.Resource;
+// import nl.javadude.t2bus.Subscribe;
 
 // Previously a @DeployitEventListener
 public class ReleaseEventListener implements XLReleaseEventListener {
@@ -72,7 +73,7 @@ public class ReleaseEventListener implements XLReleaseEventListener {
   private static final String DB_CONN_NAME = "ReportingDatabase";
   private static final String DB_CONN_PREFIX = "expressScripts";
   private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
-  
+
   @Resource
   private AuthenticationService authenticationService;
 
@@ -80,21 +81,21 @@ public class ReleaseEventListener implements XLReleaseEventListener {
       .expireAfterWrite(10, SECONDS).<String, Boolean>build();
 
   private ConfigurationItem getDBConnectionConfig() {
-    
+
     List<? extends ConfigurationItem> configs = XLReleaseServiceHolder.getConfigurationApi().searchByTypeAndTitle(DB_CONN_NAME,DB_CONN_PREFIX);
     ConfigurationItem dbConnectionConfig = configs.get(0); // Assume it's the first and it exists
-    return dbConnectionConfig; 
-    
+    return dbConnectionConfig;
+
   }
 
   @AsyncSubscribe
   public synchronized void receiveReleaseEvent(ReleaseEvent event) {
-    
+
     logger.debug("Executing receiveReleaseEvent()");
     logger.debug("event class is " + event.getClass().getName());
     // logger.debug("event.releaseId=” + event.releaseId()");
     // logger.debug("activityType: " + event.activityType());
-    
+
     Release release = null;
 
     switch (event.getClass().getName())
@@ -128,7 +129,7 @@ public class ReleaseEventListener implements XLReleaseEventListener {
         
     }
 
-    
+
   }
 
 
