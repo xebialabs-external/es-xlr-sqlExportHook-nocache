@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javax.annotation.Resource;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,7 +67,7 @@ import com.xebialabs.xlrelease.domain.status.ReleaseStatus;
 import com.xebialabs.xlrelease.domain.status.TaskStatus;
 import com.xebialabs.xlrelease.domain.variables.Variable;
 
-import nl.javadude.t2bus.Subscribe;
+// import nl.javadude.t2bus.Subscribe;
 
 // Previously a @DeployitEventListener
 public class ReleaseEventListener implements XLReleaseEventListener {
@@ -77,34 +79,35 @@ public class ReleaseEventListener implements XLReleaseEventListener {
   private static final String DB_CONN_NAME = "ReportingDatabase";
   private static final String DB_CONN_PREFIX = "expressScripts";
   private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
-  
+
+  @Resource
   private AuthenticationService authenticationService;
 
   private static final Cache<String, Boolean> RELEASES_SEEN = CacheBuilder.newBuilder().maximumSize(1000)
       .expireAfterWrite(10, SECONDS).<String, Boolean>build();
 
   private ConfigurationItem getDBConnectionConfig() {
-    
+
     List<? extends ConfigurationItem> configs = XLReleaseServiceHolder.getConfigurationApi().searchByTypeAndTitle(DB_CONN_NAME,DB_CONN_PREFIX);
     ConfigurationItem dbConnectionConfig = configs.get(0); // Assume it's the first and it exists
-    return dbConnectionConfig; 
-    
+    return dbConnectionConfig;
+
   }
 
   @AsyncSubscribe
   public synchronized void receiveReleaseEvent(ReleaseEvent event) {
-    
+
     logger.debug("Executing receiveReleaseEvent()");
     logger.debug("event class is " + event.getClass().getName());
     // logger.debug("event.releaseId=” + event.releaseId()");
     // logger.debug("activityType: " + event.activityType());
-    
+
     Release release = null;
     if (event.getClass().getName() == "com.xebialabs.xlrelease.domain.events.ReleaseStartedEvent") {
-      release = ((ReleaseStartedEvent) event).release(); 
+      release = ((ReleaseStartedEvent) event).release();
       authenticationService.loginScriptUser(release);
       logger.debug(release.getTitle());
-      if (release.getStatus() == ReleaseStatus.PLANNED) { 
+      if (release.getStatus() == ReleaseStatus.PLANNED) {
         if (RELEASES_SEEN.getIfPresent(release.getId()) != null) {
           logger.debug("Release '{}' already seen. Doing nothing", release.getId());
         } else {
@@ -114,16 +117,16 @@ public class ReleaseEventListener implements XLReleaseEventListener {
       }
       authenticationService.logoutScriptUser();
     }
-    
+
     // We can use this style if we need to handle many, many event types
-    /* 
+    /*
     switch (event.getClass().getName())
     {
       case "com.xebialabs.xlrelease.domain.events.ReleaseStartedEvent":
         break;
     } */
 
-    
+
   }
 
 
