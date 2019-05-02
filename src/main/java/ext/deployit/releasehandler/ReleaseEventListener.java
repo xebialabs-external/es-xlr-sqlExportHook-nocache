@@ -36,22 +36,16 @@ import com.google.common.cache.CacheBuilder;
 import com.xebialabs.deployit.engine.spi.event.CisCreatedEvent;
 import com.xebialabs.deployit.engine.spi.event.CisUpdatedEvent;
 
-// import com.xebialabs.deployit.engine.spi.event.DeployitEventListener;
-// Change to use XLReleaseEventListener
 import com.xebialabs.xlrelease.domain.events.ActivityLogEvent;
 import com.xebialabs.xlrelease.domain.events.ReleaseEvent;
 import com.xebialabs.xlrelease.domain.events.ReleaseStartedEvent;
 import com.xebialabs.xlrelease.security.authentication.AuthenticationService;
-// import com.xebialabs.xlrelease.domain.events.PhaseExecutionEvent;
-// import com.xebialabs.xlrelease.domain.events.ReleaseExecutionEvent;
-// import com.xebialabs.xlrelease.domain.events.TaskExecutionEvent;
 import com.xebialabs.xlrelease.events.AsyncSubscribe;
 import com.xebialabs.xlrelease.events.XLReleaseEventListener;
 import com.xebialabs.xlrelease.domain.status.PhaseStatus;
 import com.xebialabs.xlrelease.domain.status.ReleaseStatus;
 import com.xebialabs.xlrelease.domain.status.TaskStatus;
 
-//
 import com.xebialabs.deployit.plugin.api.reflect.Type;
 import com.xebialabs.deployit.plugin.api.udm.ConfigurationItem;
 import com.xebialabs.deployit.repository.RepositoryService;
@@ -66,6 +60,7 @@ import com.xebialabs.xlrelease.domain.status.TaskStatus;
 import com.xebialabs.xlrelease.domain.variables.Variable;
 
 import nl.javadude.t2bus.Subscribe;
+import javax.annotation.Resource;
 
 // Previously a @DeployitEventListener
 public class ReleaseEventListener implements XLReleaseEventListener {
@@ -78,6 +73,7 @@ public class ReleaseEventListener implements XLReleaseEventListener {
   private static final String DB_CONN_PREFIX = "expressScripts";
   private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
   
+  @Resource
   private AuthenticationService authenticationService;
 
   private static final Cache<String, Boolean> RELEASES_SEEN = CacheBuilder.newBuilder().maximumSize(1000)
@@ -100,28 +96,37 @@ public class ReleaseEventListener implements XLReleaseEventListener {
     // logger.debug("activityType: " + event.activityType());
     
     Release release = null;
-    if (event.getClass().getName() == "com.xebialabs.xlrelease.domain.events.ReleaseStartedEvent") {
-      release = ((ReleaseStartedEvent) event).release(); 
-      authenticationService.loginScriptUser(release);
-      logger.debug(release.getTitle());
-      if (release.getStatus() == ReleaseStatus.PLANNED) { 
-        if (RELEASES_SEEN.getIfPresent(release.getId()) != null) {
-          logger.debug("Release '{}' already seen. Doing nothing", release.getId());
-        } else {
-          RELEASES_SEEN.put(release.getId(), true);
-          exportRelease(release);
-        }
-      }
-      authenticationService.logoutScriptUser();
-    }
-    
-    // We can use this style if we need to handle many, many event types
-    /* 
+
     switch (event.getClass().getName())
     {
+      
+      // Event published when a release has started, completed or aborted.
       case "com.xebialabs.xlrelease.domain.events.ReleaseStartedEvent":
+      case "com.xebialabs.xlrelease.domain.events.ReleaseCompletedEvent":
+      case "com.xebialabs.xlrelease.domain.events.ReleaseAbortedEvent":
+      // Event published when properties of a release or a template (such as its title) has been updated.
+      // This event does not include changes in task/phase content or task/phase execution status.
+      case "com.xebialabs.xlrelease.domain.events.ReleaseUpdatedEvent": 
+      
+        release = ((ReleaseStartedEvent) event).release(); 
+        authenticationService.loginScriptUser(release);
+        logger.debug(release.getTitle());
+        if (release.getStatus() != ReleaseStatus.TEMPLATE) { 
+          if (RELEASES_SEEN.getIfPresent(release.getId()) != null) {
+            logger.debug("Release '{}' already seen. Doing nothing", release.getId());
+          } else {
+            RELEASES_SEEN.put(release.getId(), true);
+            exportRelease(release);
+          }
+        }
+        authenticationService.logoutScriptUser();
+      
         break;
-    } */
+        
+      default: 
+        break;
+        
+    }
 
     
   }
