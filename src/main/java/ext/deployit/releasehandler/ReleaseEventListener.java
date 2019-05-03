@@ -71,6 +71,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.xebialabs.xlrelease.service.SharedConfigurationService;
 import static com.xebialabs.deployit.plugin.api.reflect.Type.valueOf;
+import com.xebialabs.xlrelease.script.EncryptionHelper;
 
 // Previously a @DeployitEventListener
 public class ReleaseEventListener implements XLReleaseEventListener {
@@ -101,13 +102,14 @@ public class ReleaseEventListener implements XLReleaseEventListener {
     List<Configuration> items = sharedConfigurationService.searchByTypeAndTitle(valueOf(DB_CONN_PREFIX + "." + DB_CONN_NAME), null, null, false);
     ConfigurationItem dbConnectionConfiguration = items.get(0);
     if (dbConnectionConfiguration != null) {
+      EncryptionHelper.decrypt(dbConnectionConfiguration);
       return dbConnectionConfiguration;
     }
     
 
     logger.debug("Executing getDBConnectionConfig()");
-//    List<? extends ConfigurationItem> configs = XLReleaseServiceHolder.getConfigurationApi().searchByTypeAndTitle(DB_CONN_PREFIX + "." + DB_CONN_NAME, null);
     authenticationService.loginScriptUser(release);
+    //    List<? extends ConfigurationItem> configs = XLReleaseServiceHolder.getConfigurationApi().searchByTypeAndTitle(DB_CONN_PREFIX + "." + DB_CONN_NAME, null);
     List<? extends ConfigurationItem> configs = configurationApi.searchByTypeAndTitle(DB_CONN_PREFIX + "." + DB_CONN_NAME, null);
     authenticationService.logoutScriptUser();
     logger.debug(String.format("Got %d config(s)", configs.size()));
@@ -319,6 +321,9 @@ public class ReleaseEventListener implements XLReleaseEventListener {
     }
 
     try {
+      
+      logger.debug("   About to try SQL... "); // DebugInfo
+      
       // Delete data if release already exists
       if (release.getStatus() != ReleaseStatus.PLANNED) {
         deleteReleaseData(connConfig, dbConnection, release);
@@ -375,7 +380,7 @@ public class ReleaseEventListener implements XLReleaseEventListener {
     if (connConfig.getProperty("password") == null) {
         logger.debug("Password is null");
     }
-    logger.debug((String)connConfig.getProperty("password"));
+    // logger.debug((String)connConfig.getProperty("password"));
     final String password = connConfig.getProperty("password").toString();
     logger.debug("Database password is " + password);
 
@@ -383,7 +388,10 @@ public class ReleaseEventListener implements XLReleaseEventListener {
     // Connection dbConnection = DriverManager.getConnection(databaseURL,
     // username, password);
     // dbConnection.setAutoCommit(false);
+    logger.debug("Trying to initialize SQL (DataSource)..."); 
     DataSource ds = DataSource.getInstance(databaseDriver, databaseURL, username, password);
+    logger.debug("Got SQL (DataSource)."); 
     return ds.getConnection();
+    
   }
 }
