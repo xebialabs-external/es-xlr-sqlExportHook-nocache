@@ -41,6 +41,9 @@ import com.xebialabs.deployit.engine.spi.event.CisUpdatedEvent;
 import com.xebialabs.xlrelease.domain.events.ActivityLogEvent;
 import com.xebialabs.xlrelease.domain.events.ReleaseEvent;
 import com.xebialabs.xlrelease.domain.events.ReleaseStartedEvent;
+import com.xebialabs.xlrelease.domain.events.ReleaseUpdatedEvent;
+import com.xebialabs.xlrelease.domain.events.ReleaseCompletedEvent;
+import com.xebialabs.xlrelease.domain.events.ReleaseAbortedEvent;
 import com.xebialabs.xlrelease.security.authentication.AuthenticationService;
 import com.xebialabs.xlrelease.events.AsyncSubscribe;
 import com.xebialabs.xlrelease.events.XLReleaseEventListener;
@@ -52,7 +55,8 @@ import com.xebialabs.deployit.plugin.api.reflect.Type;
 import com.xebialabs.deployit.plugin.api.udm.ConfigurationItem;
 import com.xebialabs.deployit.repository.RepositoryService;
 import com.xebialabs.deployit.repository.SearchParameters;
-import com.xebialabs.xlrelease.api.XLReleaseServiceHolder;
+// import com.xebialabs.xlrelease.api.XLReleaseServiceHolder;
+import com.xebialabs.xlrelease.api.v1.ConfigurationApi;
 import com.xebialabs.xlrelease.domain.Configuration;
 import com.xebialabs.xlrelease.domain.Phase;
 import com.xebialabs.xlrelease.domain.Release;
@@ -62,6 +66,11 @@ import com.xebialabs.xlrelease.domain.status.TaskStatus;
 import com.xebialabs.xlrelease.domain.variables.Variable;
 
 // import nl.javadude.t2bus.Subscribe;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.xebialabs.xlrelease.service.SharedConfigurationService;
+import static com.xebialabs.deployit.plugin.api.reflect.Type.valueOf;
 
 // Previously a @DeployitEventListener
 public class ReleaseEventListener implements XLReleaseEventListener {
@@ -77,13 +86,33 @@ public class ReleaseEventListener implements XLReleaseEventListener {
   @Resource
   private AuthenticationService authenticationService;
 
+  @Resource
+  private ConfigurationApi configurationApi;
+  
+  @Resource
+  private SharedConfigurationService sharedConfigurationService;
+
   private static final Cache<String, Boolean> RELEASES_SEEN = CacheBuilder.newBuilder().maximumSize(1000)
       .expireAfterWrite(10, SECONDS).<String, Boolean>build();
 
-  private ConfigurationItem getDBConnectionConfig() {
+  private ConfigurationItem getDBConnectionConfig(Release release) {
 
-    List<? extends ConfigurationItem> configs = XLReleaseServiceHolder.getConfigurationApi().searchByTypeAndTitle(DB_CONN_NAME,DB_CONN_PREFIX);
+    // Test - Direct access to configuration items
+    List<Configuration> items = sharedConfigurationService.searchByTypeAndTitle(valueOf(DB_CONN_PREFIX + "." + DB_CONN_NAME), null, null, false);
+    ConfigurationItem dbConnectionConfiguration = items.get(0);
+    if (dbConnectionConfiguration != null) {
+      return dbConnectionConfiguration;
+    }
+    
+
+    logger.debug("Executing getDBConnectionConfig()");
+//    List<? extends ConfigurationItem> configs = XLReleaseServiceHolder.getConfigurationApi().searchByTypeAndTitle(DB_CONN_PREFIX + "." + DB_CONN_NAME, null);
+    authenticationService.loginScriptUser(release);
+    List<? extends ConfigurationItem> configs = configurationApi.searchByTypeAndTitle(DB_CONN_PREFIX + "." + DB_CONN_NAME, null);
+    authenticationService.logoutScriptUser();
+    logger.debug(String.format("Got %d config(s)", configs.size()));
     ConfigurationItem dbConnectionConfig = configs.get(0); // Assume it's the first and it exists
+    logger.debug("Returning first config");
     return dbConnectionConfig;
 
   }
@@ -97,22 +126,33 @@ public class ReleaseEventListener implements XLReleaseEventListener {
     // logger.debug("activityType: " + event.activityType());
 
     Release release = null;
-
-    switch (event.getClass().getName())
+    String[] splitClassname = event.getClass().getName().split("\\.");
+    String shortClassname = splitClassname[splitClassname.length - 1];
+    switch (shortClassname)
     {
-      
+
       // Event published when a release has started, completed or aborted.
-      case "com.xebialabs.xlrelease.domain.events.ReleaseStartedEvent":
-      case "com.xebialabs.xlrelease.domain.events.ReleaseCompletedEvent":
-      case "com.xebialabs.xlrelease.domain.events.ReleaseAbortedEvent":
+      case "ReleaseStartedEvent":
+          release = ((ReleaseStartedEvent) event).release();
+          break;
+      case "ReleaseCompletedEvent":
+          release = ((ReleaseCompletedEvent) event).release();
+          break;
+      case "ReleaseAbortedEvent":
+          release = ((ReleaseAbortedEvent) event).release();
+          break;
       // Event published when properties of a release or a template (such as its title) has been updated.
       // This event does not include changes in task/phase content or task/phase execution status.
-      case "com.xebialabs.xlrelease.domain.events.ReleaseUpdatedEvent": 
-      
-        release = ((ReleaseStartedEvent) event).release(); 
-        authenticationService.loginScriptUser(release);
+      case "ReleaseUpdatedEvent":
+          release = ((ReleaseUpdatedEvent) event).updated();
+          break;
+      default:
+          break;
+    }
+    if (release != null) {
+//        authenticationService.loginScriptUser(release);
         logger.debug(release.getTitle());
-        if (release.getStatus() != ReleaseStatus.TEMPLATE) { 
+        if (release.getStatus() != ReleaseStatus.TEMPLATE) {
           if (RELEASES_SEEN.getIfPresent(release.getId()) != null) {
             logger.debug("Release '{}' already seen. Doing nothing", release.getId());
           } else {
@@ -120,18 +160,9 @@ public class ReleaseEventListener implements XLReleaseEventListener {
             exportRelease(release);
           }
         }
-        authenticationService.logoutScriptUser();
-      
-        break;
-        
-      default: 
-        break;
-        
+//        authenticationService.logoutScriptUser();
     }
-
-
   }
-
 
   private void exportRelease(final Release release) {
     logger.debug("Submitting runnable to invoke release exporter for release '{}'", release.getId());
@@ -157,7 +188,7 @@ public class ReleaseEventListener implements XLReleaseEventListener {
 
   private void invokeReleaseExporter(Release release) throws IOException, SQLException, PropertyVetoException {
 
-    final ConfigurationItem connConfig = getDBConnectionConfig();
+    final ConfigurationItem connConfig = getDBConnectionConfig(release);
     if (connConfig == null) {
       logger.error("Could not find config, ignoring export to reporting database");
       return;
@@ -336,9 +367,17 @@ public class ReleaseEventListener implements XLReleaseEventListener {
   private Connection getDBConnection(final ConfigurationItem connConfig)
       throws IOException, SQLException, PropertyVetoException {
     final String databaseDriver = connConfig.getProperty("dbDriver").toString();
+    logger.debug("Database driver is " + databaseDriver);
     final String databaseURL = connConfig.getProperty("JDBCUrl").toString();
+    logger.debug("Database URL is " + databaseURL);
     final String username = connConfig.getProperty("username").toString();
+    logger.debug("Database username is " + username);
+    if (connConfig.getProperty("password") == null) {
+        logger.debug("Password is null");
+    }
+    logger.debug((String)connConfig.getProperty("password"));
     final String password = connConfig.getProperty("password").toString();
+    logger.debug("Database password is " + password);
 
     // Class.forName(databaseDriver);
     // Connection dbConnection = DriverManager.getConnection(databaseURL,

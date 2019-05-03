@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<synthetic xsi:schemaLocation="http://www.xebialabs.com/deployit/synthetic synthetic.xsd" xmlns="http://www.xebialabs.com/deployit/synthetic" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+   <type  type="expressScripts.ReportingDatabase" extends="xlrelease.Configuration">
+     <property name="JDBCUrl" />
+     <property name="username" />
+     <property name="dbDriver" default="net.sourceforge.jtds.jdbc.Driver" />
+     <property name="password" password="true" />
+     <property name="releaseDetailsTable" default="release_details"/>
+     <property name="taskDetailsTable" default="task_details" />
+     <property name="userStoriesTable" default="user_stories" />
+
+     <property name="jiraProjectVariableName" default="JiraProject" />
+     <property name="jiraProjectReleaseVersion" default="ApplicationVersion" />
+     <property name="userStoriesVariableName" default="JiraUserStories" />
+   </type>
+
+</synthetic>

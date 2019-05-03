@@ -4,8 +4,8 @@ apply plugin: 'eclipse'
 apply plugin: 'maven'
 
 group = 'com.xebialabs.deployit.community'
-sourceCompatibility = 1.7
-targetCompatibility = 1.7
+// sourceCompatibility = 1.7
+// targetCompatibility = 1.7
 version = '1.1.4-a'
 // def apiVersion = '2016.2.2'
 def apiVersion = '2018.6.3'
@@ -23,7 +23,7 @@ repositories {
 
 }
 
-def xlreleaseHome = '/Users/user/xl-instance2/xlr'
+def xlreleaseHome = '/xlr_home_directory'
 
 dependencies {
   compile "com.xebialabs.deployit:engine-spi:$apiVersion"
@@ -34,7 +34,7 @@ dependencies {
   compile "com.xebialabs.xlrelease:xlr-api:8.5.4"
   // compile files ("$xlreleaseHome/hotfix/ge-xlr-api-8.0.0-b.jar")
   // compile files ("$xlreleaseHome/hotfix/es-xlr-api-hotfix.jar")
-  compile fileTree(dir: "$xlreleaseHome/lib", include: ['*.jar'])
+  // compile fileTree(dir: "$xlreleaseHome/lib", include: ['*.jar'])
   // compile group: 'nl.javadude.t2bus', name: 't2-bus', version: '1.2.1'
   compile 'com.google.guava:guava:26.0-jre'
   compile fileTree(dir: "libs", include: '*.jar')
