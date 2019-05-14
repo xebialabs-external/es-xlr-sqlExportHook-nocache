@@ -376,13 +376,13 @@ public class ReleaseEventListener implements XLReleaseEventListener {
     final String databaseURL = connConfig.getProperty("JDBCUrl").toString();
     logger.debug("Database URL is " + databaseURL);
     final String username = connConfig.getProperty("username").toString();
-    logger.debug("Database username is " + username);
+    // logger.debug("Database username is " + username);
     if (connConfig.getProperty("password") == null) {
         logger.debug("Password is null");
     }
     // logger.debug((String)connConfig.getProperty("password"));
     final String password = connConfig.getProperty("password").toString();
-    logger.debug("Database password is " + password);
+    // logger.debug("Database password is " + password);
 
     // Class.forName(databaseDriver);
     // Connection dbConnection = DriverManager.getConnection(databaseURL,
