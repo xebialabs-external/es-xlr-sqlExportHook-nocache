@@ -155,12 +155,31 @@ public class ReleaseEventListener implements XLReleaseEventListener {
 //        authenticationService.loginScriptUser(release);
         logger.debug(release.getTitle());
         if (release.getStatus() != ReleaseStatus.TEMPLATE) {
+          
+          // nocache version
+          
+          /* 
           if (RELEASES_SEEN.getIfPresent(release.getId()) != null) {
             logger.debug("Release '{}' already seen. Doing nothing", release.getId());
           } else {
             RELEASES_SEEN.put(release.getId(), true);
             exportRelease(release);
           }
+          */
+          
+          if (RELEASES_SEEN.getIfPresent(release.getId()) != null) {
+            logger.debug("[es-xlr-sqlExportHook-nocache] Release '{}' already seen. Exporting anyways.", release.getId());
+          } else {
+            RELEASES_SEEN.put(release.getId(), true);
+            logger.debug("[es-xlr-sqlExportHook-nocache] Found new data for release '{}'. Adding to RELEASES_SEEN.", release.getId());
+          }
+          
+          // Export the release even if we think we already saw it
+          
+          logger.debug("[es-xlr-sqlExportHook-nocache] Exporting release '{}'...", release.getId());
+          exportRelease(release);
+          
+          
         }
 //        authenticationService.logoutScriptUser();
     }
